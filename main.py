@@ -8,9 +8,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from statistics import median
 
-PRIOR_DRIFT = 0.35
-WALK_FLOOR = 0.30
+PRIOR_DRIFT = 0.60
+WALK_FLOOR = 0.45
 DRIFT_SIGMA = 0.30
+REFRESH_SIGMA = 1.25
 RESID_FLOOR = 0.25
 RESID_CAP = 0.9
 RESID_FALLBACK = 0.35
@@ -126,7 +127,12 @@ def forecast_case(case: dict, name: str) -> dict:
 
         location = level + min(2.0, max(-1.5, drift * effective_horizon))
         walk_sigma = max(residual_sigma, WALK_FLOOR)
-        spread = math.sqrt(walk_sigma**2 * horizon + (DRIFT_SIGMA * effective_horizon) ** 2)
+        # Exophase refreshes game counts on its own schedule, hours apart. At least
+        # one refresh lands between checkpoint and target, beyond the observed history.
+        # The resulting jump uncertainty stays constant even at short horizons.
+        spread = math.sqrt(
+            walk_sigma**2 * horizon + (DRIFT_SIGMA * effective_horizon) ** 2 + REFRESH_SIGMA**2
+        )
         quantiles = [round4(100 * inv_logit(location + z * spread)) for z in Z]
         rows.append({"id": trophy["id"], "q": quantiles})
     return {"trophies": rows}
