@@ -90,11 +90,16 @@ def forecast_case(case: dict, name: str) -> dict:
     horizon = case["horizon_minutes"] / 1440.0
     effective_horizon = -2.0 * math.expm1(-horizon / 2.0)
     reads = []
+    origin = None
     for read in case["history"]:
         instant = datetime.fromisoformat(read["at"])
         if instant.tzinfo is None:
             instant = instant.replace(tzinfo=UTC)
-        reads.append((instant.timestamp() / 86_400, read["rates"]))
+        if origin is None:
+            origin = instant
+        offset_seconds = (instant - origin).total_seconds()
+        t_days = offset_seconds / 86_400.0
+        reads.append((t_days, read["rates"]))
 
     gaps = [
         later - earlier
